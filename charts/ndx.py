@@ -248,12 +248,20 @@ def create_ndx_plot(df, api_data_analysis, api_index):
     ax.plot(df['time'], red_dashed, color='#FF0000', linestyle='--',
             linewidth=1.5, alpha=0.7)
 
-    # Add dynamic value labels
+    # Add dynamic value labels - INCLUDING RED LINE VALUE
     final_call = api_data_analysis['call_centroid']
+    final_put = api_data_analysis['put_centroid']  # Added red line value
     final_spot = df['spot'].iloc[api_index] if api_index < len(df) else api_data_analysis['spot_price']
 
+    # Green line value (call centroid)
     ax.text(df['time'].iloc[-1] + timedelta(minutes=30), final_call, f'{final_call:.2f}',
             verticalalignment='center', color='#00AA00', fontweight='bold', fontsize=11)
+
+    # Red line value (put centroid) - NEW ADDITION
+    ax.text(df['time'].iloc[-1] + timedelta(minutes=30), final_put, f'{final_put:.2f}',
+            verticalalignment='center', color='#FF0000', fontweight='bold', fontsize=11)
+
+    # Purple line value (spot price)
     ax.text(df['time'].iloc[-1] + timedelta(minutes=30), final_spot, f'{final_spot:.2f}',
             verticalalignment='center', color='#8000FF', fontweight='bold', fontsize=11)
 

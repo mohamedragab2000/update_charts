@@ -243,13 +243,14 @@ def create_dynamic_plot(df, api_data_analysis, api_index):
     # Add dynamic value labels
     final_call = api_data_analysis['call_centroid']
     final_spot = df['spot'].iloc[api_index] if api_index < len(df) else api_data_analysis['spot_price']
+    final_red_dashed = red_dashed[-1]
 
     ax.text(df['time'].iloc[-1] + timedelta(minutes=30), final_call, f'{final_call:.2f}',
             verticalalignment='center', color='#00AA00', fontweight='bold', fontsize=11)
     ax.text(df['time'].iloc[-1] + timedelta(minutes=30), final_spot, f'{final_spot:.2f}',
             verticalalignment='center', color='#8000FF', fontweight='bold', fontsize=11)
-
-
+    ax.text(df['time'].iloc[-1] + timedelta(minutes=30), final_red_dashed, f'{final_red_dashed:.2f}',
+            verticalalignment='center', color='#FF0000', fontweight='bold', fontsize=11)
 
     # Add arrows
     arrow_props_green = dict(arrowstyle='->', color='#00AA00', lw=2)
@@ -301,8 +302,6 @@ def create_dynamic_plot(df, api_data_analysis, api_index):
     legend = ax.legend(loc='lower right', frameon=True, fancybox=False, shadow=False,
                        framealpha=1.0, edgecolor='black', fontsize=10)
     legend.get_frame().set_facecolor('white')
-
-
 
     plt.tight_layout()
     plt.subplots_adjust(top=0.88, bottom=0.12, left=0.08, right=0.92)
@@ -381,7 +380,6 @@ def main():
         saved_path = save_chart_to_static_dir(fig, api_analysis)
         print(f"\n=== CHART SAVED ===")
         print(f"Chart saved to: {saved_path}")
-
 
         plt.close(fig)
 
