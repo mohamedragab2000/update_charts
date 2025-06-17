@@ -14,7 +14,7 @@ matplotlib.use('Agg')
 
 def fetch_spx_data():
     """Fetch data from the SPX API"""
-    url = "https://api.gexbot.com/spx/classic/full?key=fqPc4q3w7ezU"
+    url = "https://api.gexbot.com/spx/classic/zero?key=fqPc4q3w7ezU"
     try:
         response = requests.get(url, timeout=30)
         response.raise_for_status()

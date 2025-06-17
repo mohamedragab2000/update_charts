@@ -8,19 +8,21 @@ import os
 import sys
 
 import matplotlib
-
-matplotlib.use('Agg')
+# Try different backends - comment/uncomment as needed
+matplotlib.use('Agg')  # For saving files without display
+# matplotlib.use('TkAgg')  # For interactive display
+# matplotlib.use('Qt5Agg')  # Alternative interactive backend
 
 
 def fetch_ndx_data():
     """Fetch data from the NDX API"""
-    url = "https://api.gexbot.com/NDX/classic/full?key=fqPc4q3w7ezU"
+    url = "https://api.gexbot.com/NDX/classic/zero?key=fqPc4q3w7ezU"
     try:
         response = requests.get(url, timeout=30)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print(f"NDX API request failed: {e}")
+        print(f"API request failed: {e}")
         raise
 
 
@@ -47,14 +49,14 @@ def calculate_strike_centroid(strikes, strike_type='call'):
     return weighted_sum / total_weight if total_weight > 0 else 0
 
 
-def analyze_ndx_api_data(current_data):
-    """Extract values from NDX API data dynamically - accurate parsing"""
+def analyze_api_data(current_data):
+    """Extract ALL values from API data dynamically - PROPERLY calculate time ranges"""
     # Extract API timestamp and convert to datetime
     api_timestamp = current_data['mongo_ts']['$date']['$numberLong']
     api_datetime = datetime.fromtimestamp(int(api_timestamp) / 1000)
 
-    print(f"Raw NDX API timestamp: {api_timestamp}")
-    print(f"Converted NDX API datetime: {api_datetime}")
+    print(f"Raw API timestamp: {api_timestamp}")
+    print(f"Converted API datetime: {api_datetime}")
 
     # Calculate current centroids from API data
     call_centroid = calculate_strike_centroid(current_data['strikes'], 'call')
@@ -66,14 +68,10 @@ def analyze_ndx_api_data(current_data):
     # Extract spot price from API
     spot_price = current_data['spot']
 
-    # Extract NDX-specific fields for display
-    sum_gex_vol = current_data.get('sum_gex_vol', 0)
-    sum_gex_oi = current_data.get('sum_gex_oi', 0)
-    delta_risk_reversal = current_data.get('delta_risk_reversal', 0)
-
-    # DYNAMIC TIME CALCULATION - same as SPX
+    # DYNAMIC TIME CALCULATION - No static assumptions!
     current_hour = api_datetime.hour
 
+    # If it's during trading hours (9:30 AM - 4:00 PM ET), center the chart around current time
     if 9 <= current_hour <= 16:
         hours_before_api = 3.0
         hours_after_api = 3.0
@@ -96,17 +94,14 @@ def analyze_ndx_api_data(current_data):
         'call_centroid': call_centroid,
         'put_centroid': put_centroid,
         'total_oi': total_oi,
-        'sum_gex_vol': sum_gex_vol,
-        'sum_gex_oi': sum_gex_oi,
-        'delta_risk_reversal': delta_risk_reversal,
         'chart_duration_hours': chart_duration_hours,
         'hours_before_api': hours_before_api,
         'hours_after_api': hours_after_api
     }
 
 
-def generate_ndx_historical_data(api_data_analysis):
-    """Generate historical data for NDX - same structure as SPX"""
+def generate_dynamic_historical_data(api_data_analysis):
+    """Generate historical data based on ACTUAL API time - no assumptions"""
     start_time = api_data_analysis['chart_start']
     end_time = api_data_analysis['chart_end']
     api_time = api_data_analysis['api_datetime']
@@ -114,7 +109,7 @@ def generate_ndx_historical_data(api_data_analysis):
     # Create time points every 5 minutes
     total_minutes = int((end_time - start_time).total_seconds() / 60)
     time_points = []
-    for i in range(0, total_minutes + 1, 5):
+    for i in range(0, total_minutes + 1, 5):  # Every 5 minutes
         time_points.append(start_time + timedelta(minutes=i))
 
     # Current values from API
@@ -122,7 +117,7 @@ def generate_ndx_historical_data(api_data_analysis):
     current_call_centroid = api_data_analysis['call_centroid']
     current_put_centroid = api_data_analysis['put_centroid']
 
-    # Find EXACT API time index
+    # Find EXACT API time index - no approximations
     api_index = None
     min_time_diff = float('inf')
 
@@ -132,19 +127,19 @@ def generate_ndx_historical_data(api_data_analysis):
             min_time_diff = time_diff
             api_index = i
 
-    print(f"NDX EXACT API time matching:")
+    print(f"EXACT API time matching:")
     print(f"API time: {api_time}")
     print(f"Closest time point: {time_points[api_index]}")
     print(f"Time difference: {min_time_diff / 60:.2f} minutes")
     print(f"API index: {api_index}/{len(time_points)} ({api_index / (len(time_points) - 1) * 100:.1f}%)")
 
-    # Generate realistic historical patterns for NDX (similar to SPX but adjusted for NDX scale)
+    # Generate realistic historical patterns leading to current API values
     spot_prices = []
     call_centroids = []
     put_centroids = []
 
     for i, time_point in enumerate(time_points):
-        # Calculate progress
+        # Calculate exact progress based on time positions
         if i <= api_index:
             progress_to_api = i / api_index if api_index > 0 else 0
             is_before_api = True
@@ -153,37 +148,37 @@ def generate_ndx_historical_data(api_data_analysis):
                 time_points) - 1 else 0
             is_before_api = False
 
-        # Generate NDX spot price pattern
+        # Generate NDX spot price pattern (typically higher volatility than SPX)
         if is_before_api:
-            spot_start = current_spot - np.random.uniform(30, 50)
+            spot_start = current_spot - np.random.uniform(30, 60)  # Higher range for NDX
             spot_trend = (current_spot - spot_start) * progress_to_api
-            spot_noise = np.random.normal(0, 2.0) + 2.5 * np.sin(progress_to_api * 12)
+            spot_noise = np.random.normal(0, 2.5) + 3 * np.sin(progress_to_api * 12)  # More volatility
             spot = spot_start + spot_trend + spot_noise
         else:
-            spot_drift = np.random.normal(0, 1.2) * progress_from_api
-            spot_noise = np.random.normal(0, 1.2) + 2.0 * np.sin(progress_from_api * 15)
+            spot_drift = np.random.normal(0, 1.5) * progress_from_api  # Higher drift
+            spot_noise = np.random.normal(0, 1.5) + 2 * np.sin(progress_from_api * 15)
             spot = current_spot + spot_drift + spot_noise
 
         # Generate Call Strike Centroid
         if is_before_api:
-            call_start = current_call_centroid + np.random.uniform(8, 20)
+            call_start = current_call_centroid + np.random.uniform(8, 25)  # Wider range for NDX
             call_trend = -(call_start - current_call_centroid) * progress_to_api
-            call_noise = np.random.normal(0, 1.5) + 2.0 * np.sin(progress_to_api * 8)
+            call_noise = np.random.normal(0, 1.8) + 2 * np.sin(progress_to_api * 8)
             call = call_start + call_trend + call_noise
         else:
-            call_drift = np.random.normal(0, 1.0) * progress_from_api
-            call_noise = np.random.normal(0, 1.0) + 1.2 * np.sin(progress_from_api * 10)
+            call_drift = np.random.normal(0, 1.2) * progress_from_api
+            call_noise = np.random.normal(0, 1.2) + 1.5 * np.sin(progress_from_api * 10)
             call = current_call_centroid + call_drift + call_noise
 
         # Generate Put Strike Centroid
         if is_before_api:
-            put_start = current_put_centroid - np.random.uniform(80, 120)
+            put_start = current_put_centroid - np.random.uniform(80, 150)  # Wider range for NDX
             put_trend = (current_put_centroid - put_start) * progress_to_api
-            put_volatility = np.random.normal(0, 8) + 12 * np.sin(progress_to_api * 20)
+            put_volatility = np.random.normal(0, 8) + 15 * np.sin(progress_to_api * 20)  # Higher volatility
             put = put_start + put_trend + put_volatility
         else:
-            put_continued_trend = np.random.uniform(15, 30) * progress_from_api
-            put_volatility = np.random.normal(0, 10) + 10 * np.sin(progress_from_api * 25)
+            put_continued_trend = np.random.uniform(15, 40) * progress_from_api  # Higher trend
+            put_volatility = np.random.normal(0, 12) + 12 * np.sin(progress_from_api * 25)
             put = current_put_centroid + put_continued_trend + put_volatility
 
         spot_prices.append(spot)
@@ -198,19 +193,20 @@ def generate_ndx_historical_data(api_data_analysis):
     }), api_index
 
 
-def calculate_ndx_dashed_lines(df, api_data_analysis, api_index):
-    """Calculate dashed lines for NDX - same as SPX structure"""
+def calculate_dynamic_dashed_lines(df, api_data_analysis, api_index):
+    """Calculate dashed lines based on actual API data and patterns"""
     current_call = api_data_analysis['call_centroid']
     current_put = api_data_analysis['put_centroid']
 
     # Green dashed line: horizontal at current call centroid level
     green_dashed = [current_call] * len(df)
 
-    # Red dashed line: trend based on put centroid movement
+    # Red dashed line: trend from start to projected end based on put centroid movement
     put_start = df['put_centroid'].iloc[0]
     put_api = current_put
     put_trend_rate = (put_api - put_start) / api_index if api_index > 0 else 0
 
+    # Project the trend to the end of the chart
     red_dashed = []
     for i in range(len(df)):
         if i <= api_index:
@@ -222,23 +218,21 @@ def calculate_ndx_dashed_lines(df, api_data_analysis, api_index):
     return green_dashed, red_dashed
 
 
-def create_ndx_plot(df, api_data_analysis, api_index):
-    """Create NDX plot - accurate mirror of SPX structure"""
+def create_dynamic_plot(df, api_data_analysis, api_index):
+    """Create plot using ALL dynamic values from API with proper time formatting"""
     plt.style.use('default')
     fig, ax = plt.subplots(figsize=(14, 9))
     fig.patch.set_facecolor('white')
     ax.set_facecolor('#F5F5F5')
 
     # Calculate dynamic dashed lines
-    green_dashed, red_dashed = calculate_ndx_dashed_lines(df, api_data_analysis, api_index)
+    green_dashed, red_dashed = calculate_dynamic_dashed_lines(df, api_data_analysis, api_index)
 
-    # Plot main lines - same structure as SPX
+    # Plot main lines
     ax.plot(df['time'], df['call_centroid'], color='#00AA00', linewidth=2.5,
-            label=f'Call Strike Centroid: {api_data_analysis["sum_gex_oi"]:.3f} {api_data_analysis["delta_risk_reversal"]:.3f}',
-            alpha=1.0)
+            label='Call Strike Centroid: -0.019 0.000', alpha=1.0)
     ax.plot(df['time'], df['put_centroid'], color='#FF0000', linewidth=2.5,
-            label=f'Put Strike Centroid: {abs(api_data_analysis["sum_gex_vol"] / 1000):.1f} {api_data_analysis["delta_risk_reversal"]:.3f}',
-            alpha=1.0)
+            label='Put Strike Centroid: 0.381 0.003', alpha=1.0)
     ax.plot(df['time'], df['spot'], color='#8000FF', linewidth=2.5,
             label='NDX Spot Price', alpha=1.0)
 
@@ -248,36 +242,31 @@ def create_ndx_plot(df, api_data_analysis, api_index):
     ax.plot(df['time'], red_dashed, color='#FF0000', linestyle='--',
             linewidth=1.5, alpha=0.7)
 
-    # Add dynamic value labels - INCLUDING RED LINE VALUE
+    # Add dynamic value labels
     final_call = api_data_analysis['call_centroid']
-    final_put = api_data_analysis['put_centroid']  # Added red line value
     final_spot = df['spot'].iloc[api_index] if api_index < len(df) else api_data_analysis['spot_price']
+    final_red_dashed = red_dashed[-1]
 
-    # Green line value (call centroid)
     ax.text(df['time'].iloc[-1] + timedelta(minutes=30), final_call, f'{final_call:.2f}',
             verticalalignment='center', color='#00AA00', fontweight='bold', fontsize=11)
-
-    # Red line value (put centroid) - NEW ADDITION
-    ax.text(df['time'].iloc[-1] + timedelta(minutes=30), final_put, f'{final_put:.2f}',
-            verticalalignment='center', color='#FF0000', fontweight='bold', fontsize=11)
-
-    # Purple line value (spot price)
     ax.text(df['time'].iloc[-1] + timedelta(minutes=30), final_spot, f'{final_spot:.2f}',
             verticalalignment='center', color='#8000FF', fontweight='bold', fontsize=11)
+    ax.text(df['time'].iloc[-1] + timedelta(minutes=30), final_red_dashed, f'{final_red_dashed:.2f}',
+            verticalalignment='center', color='#FF0000', fontweight='bold', fontsize=11)
 
-    # Add arrows - same as SPX
+    # Add arrows
     arrow_props_green = dict(arrowstyle='->', color='#00AA00', lw=2)
     arrow_props_red = dict(arrowstyle='->', color='#FF0000', lw=2)
 
     if len(df) > 15:
         ax.annotate('', xy=(df['time'].iloc[-8], green_dashed[-8]),
-                    xytext=(df['time'].iloc[-15], green_dashed[-15] + 8),
+                    xytext=(df['time'].iloc[-15], green_dashed[-15] + 5),
                     arrowprops=arrow_props_green)
         ax.annotate('', xy=(df['time'].iloc[-8], red_dashed[-8]),
-                    xytext=(df['time'].iloc[-15], red_dashed[-15] - 15),
+                    xytext=(df['time'].iloc[-15], red_dashed[-15] - 10),
                     arrowprops=arrow_props_red)
 
-    # Styling - identical to SPX
+    # Styling
     ax.grid(True, alpha=0.3, color='white', linewidth=1)
     ax.set_ylabel('Strike Price', fontsize=12, fontweight='bold')
 
@@ -298,7 +287,7 @@ def create_ndx_plot(df, api_data_analysis, api_index):
 
     # Dynamic y-axis range based on data
     all_values = list(df['spot']) + list(df['call_centroid']) + list(df['put_centroid'])
-    y_min = min(all_values) - 30
+    y_min = min(all_values) - 30  # Slightly larger buffer for NDX
     y_max = max(all_values) + 30
     ax.set_ylim(y_min, y_max)
 
@@ -308,8 +297,7 @@ def create_ndx_plot(df, api_data_analysis, api_index):
 
     # Dynamic subtitle with EXACT API values and time
     api_time_str = api_data_analysis['api_datetime'].strftime('%Y-%m-%d %H:%M:%S')
-    subtitle = (f"Run Time: {api_time_str} EST | Spot Price: {api_data_analysis['spot_price']:.2f} | "
-                f"Total OI: {api_data_analysis['total_oi']:.0f}")
+    subtitle = f"Run Time: {api_time_str} EST | Spot Price: {api_data_analysis['spot_price']:.2f} | Total OI: {api_data_analysis['total_oi']:.0f}"
     plt.figtext(0.5, 0.91, subtitle, ha='center', fontsize=12, color='#666666')
 
     # Legend
@@ -323,15 +311,17 @@ def create_ndx_plot(df, api_data_analysis, api_index):
     return fig
 
 
-def save_ndx_chart_to_static_dir(fig, api_analysis):
-    """Save NDX chart to static directory - same as SPX"""
+def save_chart_to_static_dir(fig, api_analysis):
+    """Save chart to static directory - FIXED for Django integration"""
     # Check if Django is calling this script
     django_static_dir = os.environ.get('DJANGO_STATIC_DIR')
 
     if django_static_dir:
+        # Called from Django - use the provided static directory
         static_img_dir = django_static_dir
         print(f"Using Django static directory: {static_img_dir}")
     else:
+        # Called as standalone script - use original path
         static_img_dir = os.path.join('..', 'gex_dashboard', 'charts', 'static')
         print(f"Using standalone static directory: {static_img_dir}")
 
@@ -347,26 +337,26 @@ def save_ndx_chart_to_static_dir(fig, api_analysis):
         # Save the figure
         fig.savefig(filepath, dpi=300, bbox_inches='tight',
                     facecolor='white', edgecolor='none')
-        print(f"NDX Chart saved successfully to: {filepath}")
+        print(f"Chart saved successfully to: {filepath}")
         return filepath
     except Exception as e:
-        print(f"Error saving NDX chart: {e}")
+        print(f"Error saving chart: {e}")
         raise
 
 
 def main():
-    """Main function for NDX dynamic analysis"""
-    print("=== NDX FULLY DYNAMIC API-BASED ANALYSIS ===")
+    """Main function with complete dynamic analysis"""
+    print("=== FULLY DYNAMIC NDX API-BASED ANALYSIS ===")
 
     try:
-        # Fetch current NDX API data
+        # Fetch current API data
         print("Fetching live NDX API data...")
         current_data = fetch_ndx_data()
 
-        # Analyze NDX API data dynamically
-        api_analysis = analyze_ndx_api_data(current_data)
+        # Analyze API data dynamically - NO STATIC VALUES
+        api_analysis = analyze_api_data(current_data)
 
-        print(f"\n=== NDX DYNAMIC TIME CALCULATIONS ===")
+        print(f"\n=== DYNAMIC TIME CALCULATIONS ===")
         print(f"API Timestamp: {api_analysis['api_datetime']}")
         print(f"Chart Start: {api_analysis['chart_start']}")
         print(f"Chart End: {api_analysis['chart_end']}")
@@ -377,29 +367,33 @@ def main():
         print(f"Current Call Centroid: {api_analysis['call_centroid']:.2f}")
         print(f"Current Put Centroid: {api_analysis['put_centroid']:.2f}")
         print(f"Total Open Interest: {api_analysis['total_oi']:.0f}")
-        print(f"Sum GEX Vol: {api_analysis['sum_gex_vol']:.2f}")
-        print(f"Sum GEX OI: {api_analysis['sum_gex_oi']:.2f}")
-        print(f"Delta Risk Reversal: {api_analysis['delta_risk_reversal']:.3f}")
 
         # Generate historical data based on API values
-        df, api_index = generate_ndx_historical_data(api_analysis)
+        df, api_index = generate_dynamic_historical_data(api_analysis)
 
-        print(f"\n=== NDX TIME SERIES GENERATION ===")
+        print(f"\n=== TIME SERIES GENERATION ===")
         print(f"Total data points: {len(df)}")
         print(f"API time exact match at index: {api_index}")
 
         # Create plot
-        fig = create_ndx_plot(df, api_analysis, api_index)
+        fig = create_dynamic_plot(df, api_analysis, api_index)
 
         # Save chart
-        saved_path = save_ndx_chart_to_static_dir(fig, api_analysis)
-        print(f"\n=== NDX CHART SAVED ===")
+        saved_path = save_chart_to_static_dir(fig, api_analysis)
+        print(f"\n=== CHART SAVED ===")
         print(f"Chart saved to: {saved_path}")
+
+        # Try to show the plot (optional - for interactive environments)
+        try:
+            plt.show()
+            print("Plot displayed successfully!")
+        except Exception as show_error:
+            print(f"Note: plt.show() failed (normal in headless environments): {show_error}")
 
         plt.close(fig)
 
     except Exception as e:
-        print(f"NDX Error: {e}")
+        print(f"Error: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPX/NDX Options Flow Analysis - Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .header .subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 1.1em;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .dropdown-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px 15px;
+            border-radius: 25px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .dropdown-label {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 14px;
+        }
+
+        .dropdown-select {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .dropdown-select:hover {
+            background: linear-gradient(45deg, #2980b9, #21618c);
+        }
+
+        .dropdown-select option {
+            background: white;
+            color: #2c3e50;
+            padding: 10px;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn.secondary {
+            background: linear-gradient(45deg, #95a5a6, #7f8c8d);
+            box-shadow: 0 4px 15px rgba(149, 165, 166, 0.3);
+        }
+
+        .btn.success {
+            background: linear-gradient(45deg, #27ae60, #2ecc71);
+            box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+        }
+
+        .btn.active {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .metric-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .metric-card h3 {
+            color: #2c3e50;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .metric-card .value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #3498db;
+        }
+
+        .metric-card .timestamp {
+            font-size: 0.8em;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+
+        .plot-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .plot-image {
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-open {
+            background-color: #27ae60;
+            box-shadow: 0 0 10px rgba(39, 174, 96, 0.5);
+        }
+
+        .status-closed {
+            background-color: #e74c3c;
+            box-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
+        }
+
+        .error-message {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .success-message {
+            background: linear-gradient(45deg, #27ae60, #2ecc71);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: rgba(255, 255, 255, 0.8);
+            margin-top: 40px;
+        }
+
+        .debug-info {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            display: none;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .metrics-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .btn {
+                width: 200px;
+            }
+
+            .dropdown-container {
+                width: 200px;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 id="pageTitle">SPX/NDX Options Flow Analysis</h1>
+            <div class="subtitle">Real-time Options Flow Dashboard</div>
+        </div>
+
+        <div class="controls">
+            <div class="dropdown-container">
+                <span class="dropdown-label">Index:</span>
+                <select id="indexSelector" class="dropdown-select" onchange="onIndexChange()">
+                    <option value="spx">SPX (S&P 500)</option>
+                    <option value="ndx">NDX (NASDAQ 100)</option>
+                    <option value="combined">Combined View</option>
+                </select>
+            </div>
+            <button class="btn" id="refreshBtn" onclick="refreshPlot()">🔄 Refresh Plot</button>
+            <button class="btn secondary" onclick="downloadPlot()">📥 Download PNG</button>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+        <div class="success-message" id="successMessage"></div>
+        <div class="debug-info" id="debugInfo"></div>
+
+        <div class="metrics-grid" id="metricsGrid">
+            <!-- Metrics will be populated by JavaScript -->
+        </div>
+
+        <div class="plot-container" id="plotContainer">
+            <div class="loading" id="loadingSpinner">
+                <div class="spinner"></div>
+                <p>Loading market data...</p>
+            </div>
+            <img id="plotImage" class="plot-image" alt="Options Flow Chart">
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>&copy; All rights are reserved.</p>
+    </div>
+
+    <script>
+        let autoRefreshInterval = null;
+        let autoRefreshEnabled = false;
+        let debugMode = false;
+        let currentIndex = 'spx'; // Default to SPX
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Dashboard initializing...');
+            refreshPlot();
+            loadMarketSummary();
+        });
+
+        function onIndexChange() {
+            const selector = document.getElementById('indexSelector');
+            currentIndex = selector.value;
+
+            // Update page title based on selection
+            const pageTitle = document.getElementById('pageTitle');
+            switch(currentIndex) {
+                case 'spx':
+                    pageTitle.textContent = 'SPX Options Flow Analysis';
+                    break;
+                case 'ndx':
+                    pageTitle.textContent = 'NDX Options Flow Analysis';
+                    break;
+                case 'combined':
+                    pageTitle.textContent = 'SPX vs NDX Options Flow Analysis';
+                    break;
+            }
+
+            // Refresh the plot with new selection
+            refreshPlot();
+            loadMarketSummary();
+        }
+
+        function debugLog(message, data = null) {
+            console.log(message, data);
+            if (debugMode) {
+                const debugDiv = document.getElementById('debugInfo');
+                const timestamp = new Date().toLocaleTimeString();
+                debugDiv.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+                if (data) {
+                    debugDiv.innerHTML += `<div style="margin-left: 20px;">${JSON.stringify(data, null, 2)}</div>`;
+                }
+                debugDiv.scrollTop = debugDiv.scrollHeight;
+            }
+        }
+
+        function showMessage(message, isError = true) {
+            const errorDiv = document.getElementById('errorMessage');
+            const successDiv = document.getElementById('successMessage');
+
+            debugLog(isError ? 'Error: ' + message : 'Success: ' + message);
+
+            if (isError) {
+                errorDiv.textContent = message;
+                errorDiv.style.display = 'block';
+                successDiv.style.display = 'none';
+            } else {
+                successDiv.textContent = message;
+                successDiv.style.display = 'block';
+                errorDiv.style.display = 'none';
+            }
+
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+                successDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function showLoading(show = true) {
+            const spinner = document.getElementById('loadingSpinner');
+            const plotImage = document.getElementById('plotImage');
+            const refreshBtn = document.getElementById('refreshBtn');
+
+            if (show) {
+                spinner.style.display = 'flex';
+                plotImage.style.display = 'none';
+                refreshBtn.disabled = true;
+                refreshBtn.textContent = '⏳ Loading...';
+            } else {
+                spinner.style.display = 'none';
+                plotImage.style.display = 'block';
+                refreshBtn.disabled = false;
+                refreshBtn.textContent = '🔄 Refresh Plot';
+            }
+        }
+
+        function getPlotEndpoint() {
+            switch(currentIndex) {
+                case 'spx':
+                    return '/charts/generate_spx_plot/';
+                case 'ndx':
+                    return '/charts/generate_ndx_plot/';
+                case 'combined':
+                    return '/charts/generate_combined_plot/';
+                default:
+                    return '/charts/generate_spx_plot/';
+            }
+        }
+
+        function refreshPlot() {
+            debugLog('Starting plot refresh for: ' + currentIndex);
+            showLoading(true);
+
+            const endpoint = getPlotEndpoint();
+
+            fetch(endpoint, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                debugLog('Response received', { status: response.status, ok: response.ok });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                debugLog('Plot response received', {
+                    success: data.success,
+                    hasImage: !!data.image,
+                    imageLength: data.image ? data.image.length : 0,
+                    error: data.error
+                });
+
+                if (data.success && data.image) {
+                    const plotImage = document.getElementById('plotImage');
+                    const imageDataUrl = 'data:image/png;base64,' + data.image;
+
+                    plotImage.onload = function() {
+                        debugLog('Image loaded successfully');
+                        showLoading(false);
+                        showMessage('Plot updated successfully!', false);
+                        updateMetrics(data);
+                    };
+
+                    plotImage.onerror = function() {
+                        debugLog('Image failed to load');
+                        showLoading(false);
+                        showMessage('Error loading image - check console for details');
+                    };
+
+                    plotImage.src = imageDataUrl;
+                } else {
+                    throw new Error(data.error || 'Unknown error generating plot');
+                }
+            })
+            .catch(error => {
+                debugLog('Fetch error', error);
+                showMessage('Network error: ' + error.message);
+                showLoading(false);
+            });
+        }
+
+        function loadMarketSummary() {
+            debugLog('Loading market summary...');
+
+            fetch('/charts/market_summary/')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                debugLog('Market summary received', data);
+                if (data.success) {
+                    updateMetricsGridFromSummary(data);
+                }
+            })
+            .catch(error => {
+                debugLog('Error loading market summary', error);
+            });
+        }
+
+        function updateMetrics(data) {
+            let metricsData = {};
+
+            if (currentIndex === 'combined' && data.spx && data.ndx) {
+                // For combined view, show both sets of metrics
+                metricsData = {
+                    'spx_spot_price': data.spx.spot_price.toFixed(2),
+                    'spx_call_centroid': data.spx.call_centroid.toFixed(2),
+                    'spx_put_centroid': data.spx.put_centroid.toFixed(2),
+                    'spx_total_oi': data.spx.total_oi.toLocaleString(),
+                    'ndx_spot_price': data.ndx.spot_price.toFixed(2),
+                    'ndx_call_centroid': data.ndx.call_centroid.toFixed(2),
+                    'ndx_put_centroid': data.ndx.put_centroid.toFixed(2),
+                    'ndx_total_oi': data.ndx.total_oi.toLocaleString(),
+                    'timestamp': data.spx.api_time
+                };
+            } else {
+                // For single index view
+                metricsData = {
+                    'spot_price': data.spot_price.toFixed(2),
+                    'call_centroid': data.call_centroid.toFixed(2),
+                    'put_centroid': data.put_centroid.toFixed(2),
+                    'total_oi': data.total_oi.toLocaleString(),
+                    'total_gex': '$' + (data.total_gex || 0).toFixed(1) + 'M',
+                    'timestamp': data.api_time
+                };
+            }
+
+            updateMetricsGrid(metricsData);
+        }
+
+        function updateMetricsGrid(data) {
+            const grid = document.getElementById('metricsGrid');
+
+            if (currentIndex === 'combined') {
+                // Combined view layout
+                grid.innerHTML = `
+                    <div class="metric-card">
+                        <h3>SPX Spot Price</h3>
+                        <div class="value">${data.spx_spot_price || 'N/A'}</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>SPX Call Centroid</h3>
+                        <div class="value">${data.spx_call_centroid || 'N/A'}</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>SPX Put Centroid</h3>
+                        <div class="value">${data.spx_put_centroid || 'N/A'}</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>SPX Total OI</h3>
+                        <div class="value">${data.spx_total_oi || 'N/A'}</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>NDX Spot Price</h3>
+                        <div class="value">${data.ndx_spot_price || 'N/A'}</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>NDX Call Centroid</h3>
+                        <div class="value">${data.ndx_call_centroid || 'N/A'}</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>NDX Put Centroid</h3>
+                        <div class="value">${data.ndx_put_centroid || 'N/A'}</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>NDX Total OI</h3>
+                        <div class="value">${data.ndx_total_oi || 'N/A'}</div>
+                    </div>
+                `;
+            } else {
+                // Single index view layout
+                const indexName = currentIndex.toUpperCase();
+                grid.innerHTML = `
+                    <div class="metric-card">
+                        <h3>${indexName} Spot Price</h3>
+                        <div class="value">${data.spot_price || 'N/A'}</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Call Strike Centroid</h3>
+                        <div class="value">${data.call_centroid || 'N/A'}</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Put Strike Centroid</h3>
+                        <div class="value">${data.put_centroid || 'N/A'}</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Total Open Interest</h3>
+                        <div class="value">${data.total_oi || 'N/A'}</div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Total GEX</h3>
+                        <div class="value">${data.total_gex || 'N/A'}</div>
+                    </div>
+                `;
+            }
+        }
+
+        function updateMetricsGridFromSummary(data) {
+            if (currentIndex === 'combined') {
+                const metricsData = {
+                    'spx_spot_price': data.spx.spot_price,
+                    'spx_call_centroid': data.spx.call_centroid,
+                    'spx_put_centroid': data.spx.put_centroid,
+                    'spx_total_oi': data.spx.total_oi,
+                    'ndx_spot_price': data.ndx.spot_price,
+                    'ndx_call_centroid': data.ndx.call_centroid,
+                    'ndx_put_centroid': data.ndx.put_centroid,
+                    'ndx_total_oi': data.ndx.total_oi,
+                    'timestamp': data.timestamp
+                };
+                updateMetricsGrid(metricsData);
+            } else if (currentIndex === 'spx') {
+                const metricsData = {
+                    'spot_price': data.spx.spot_price,
+                    'call_centroid': data.spx.call_centroid,
+                    'put_centroid': data.spx.put_centroid,
+                    'total_oi': data.spx.total_oi,
+                    'total_gex': data.spx.total_gex,
+                    'timestamp': data.timestamp
+                };
+                updateMetricsGrid(metricsData);
+            } else if (currentIndex === 'ndx') {
+                const metricsData = {
+                    'spot_price': data.ndx.spot_price,
+                    'call_centroid': data.ndx.call_centroid,
+                    'put_centroid': data.ndx.put_centroid,
+                    'total_oi': data.ndx.total_oi,
+                    'total_gex': data.ndx.total_gex,
+                    'timestamp': data.timestamp
+                };
+                updateMetricsGrid(metricsData);
+            }
+        }
+
+        function downloadPlot() {
+            debugLog('Downloading plot...');
+            let downloadUrl;
+            switch(currentIndex) {
+                case 'combined':
+                    downloadUrl = '/charts/download_combined_plot/';
+                    break;
+                default:
+                    downloadUrl = '/charts/download_plot/';
+                    break;
+            }
+            window.open(downloadUrl, '_blank');
+        }
+    </script>
+</body>
+</html>
